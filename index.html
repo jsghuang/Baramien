@@ -30,6 +30,7 @@
       height: 96px;
       position: absolute;
       bottom: 10px;
+      cursor: pointer;
     }
     .pet-name {
       position: absolute;
@@ -38,19 +39,41 @@
       padding: 4px 8px;
       border-radius: 8px;
       font-weight: bold;
+      white-space: nowrap;
+    }
+    #loginBox {
+      margin-top: 20px;
+    }
+    input {
+      padding: 8px;
+      margin: 5px;
+      font-size: 1em;
+    }
+    button {
+      padding: 8px 16px;
+      font-size: 1em;
+      background-color: #6cbe5e;
+      border: none;
+      border-radius: 8px;
+      color: white;
+      cursor: pointer;
     }
   </style>
 </head>
 <body>
   <h1>🌱 巴拉麵種菜啦</h1>
-  <div class="field"></div>
+  <div id="loginBox">
+    <input type="text" id="ownerInput" placeholder="輸入你的名字">
+    <input type="text" id="petInput" placeholder="寵物名字">
+    <button id="startBtn">開始種菜</button>
+  </div>
+  <div class="field" id="field"></div>
 
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-app.js";
     import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-auth.js";
-    import { getFirestore, collection, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-firestore.js";
+    import { getFirestore, collection, doc, setDoc, updateDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-firestore.js";
 
-    // 1. 設定 firebaseConfig
     const firebaseConfig = {
       apiKey: "AIzaSyCRBhaLdaL7DkwAz5pVm2VOAEP765cxw-E",
       authDomain: "baramien-tank.firebaseapp.com",
@@ -60,50 +83,60 @@
       appId: "1:753042102440:web:252929a482ae6a33e30a9d"
     };
 
-    // 2. 初始化 Firebase
     const app = initializeApp(firebaseConfig);
     const auth = getAuth(app);
     const db = getFirestore(app);
     const petsRef = collection(db, "pets");
 
-    // 3. 登入 + 存入巴拉麵
-    signInAnonymously(auth)
-      .then(() => {
+    let myId = null;
+
+    document.getElementById("startBtn").onclick = () => {
+      const owner = document.getElementById("ownerInput").value.trim();
+      const petName = document.getElementById("petInput").value.trim();
+      if (!owner || !petName) return alert("請填入名字和寵物名");
+
+      signInAnonymously(auth).then(() => {
         onAuthStateChanged(auth, async (user) => {
           if (user) {
-            const userId = user.uid;
-            const userPetRef = doc(petsRef, userId);
+            myId = user.uid;
+            const userPetRef = doc(petsRef, myId);
             await setDoc(userPetRef, {
-              name: "嘉哲",
+              owner: owner,
+              name: petName,
               image: "https://raw.githubusercontent.com/jsghuang/Baramien2/main/1.png",
               x: Math.floor(Math.random() * 300) + 50,
               bornAt: Date.now()
             });
+            document.getElementById("loginBox").style.display = "none";
           }
         });
-      })
-      .catch((error) => {
-        console.error("登入失敗：", error);
       });
+    };
 
-    // 4. 監聽 Firestore 顯示所有巴拉麵
     onSnapshot(petsRef, (snapshot) => {
-      const field = document.querySelector(".field");
+      const field = document.getElementById("field");
       field.innerHTML = "";
-      snapshot.forEach((doc) => {
-        const data = doc.data();
-        const img = document.createElement("img");
-        img.src = data.image;
-        img.className = "pet";
-        img.style.left = data.x + "px";
+      snapshot.forEach((docSnap) => {
+        const data = docSnap.data();
+        const petImg = document.createElement("img");
+        petImg.src = data.image;
+        petImg.className = "pet";
+        petImg.style.left = data.x + "px";
+        petImg.onclick = () => {
+          if (docSnap.id === myId) {
+            const newX = Math.floor(Math.random() * 300) + 50;
+            petImg.style.left = newX + "px";
+            updateDoc(doc(petsRef, myId), { x: newX });
+          }
+        };
 
         const name = document.createElement("div");
         name.className = "pet-name";
-        name.innerText = data.name;
+        name.innerText = `${data.owner} 的 ${data.name}`;
         name.style.left = data.x + "px";
 
         field.appendChild(name);
-        field.appendChild(img);
+        field.appendChild(petImg);
       });
     });
   </script>
