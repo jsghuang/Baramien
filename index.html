@@ -11,15 +11,19 @@
       margin: 0;
     }
     h1 {
-      margin: 20px 0;
+      margin: 20px 0 10px;
       color: #467a3f;
+    }
+    #leaderboard {
+      margin-bottom: 10px;
+      font-size: 16px;
     }
     .field {
       display: grid;
       grid-template-columns: repeat(3, 1fr);
       grid-template-rows: repeat(3, 1fr);
       gap: 5px;
-      margin: 20px auto;
+      margin: 10px auto;
       width: 100%;
       max-width: 600px;
       height: 600px;
@@ -62,7 +66,7 @@
       margin-top: 2px;
     }
     #loginBox {
-      margin-top: 20px;
+      margin-top: 10px;
     }
     input, button {
       padding: 8px;
@@ -80,6 +84,7 @@
 </head>
 <body>
   <h1>🌱 巴拉麵種菜啦</h1>
+  <div id="leaderboard"></div>
   <div id="loginBox">
     <input type="text" id="ownerInput" placeholder="輸入你的名字">
     <input type="text" id="petInput" placeholder="寵物名字">
@@ -90,7 +95,7 @@
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-app.js";
     import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-auth.js";
-    import { getFirestore, collection, doc, setDoc, updateDoc, onSnapshot, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-firestore.js";
+    import { getFirestore, collection, doc, setDoc, updateDoc, onSnapshot, getDocs, query, orderBy, limit } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-firestore.js";
 
     const firebaseConfig = {
       apiKey: "AIzaSyCRBhaLdaL7DkwAz5pVm2VOAEP765cxw-E",
@@ -126,6 +131,7 @@
               image: "https://raw.githubusercontent.com/jsghuang/Baramien2/main/1.png",
               grid: Math.floor(Math.random() * 9),
               plantedAt: Date.now(),
+              growStage: 0,
               coins: 0
             });
             document.getElementById("loginBox").style.display = "none";
@@ -144,7 +150,7 @@
         return plot;
       });
 
-      snapshot.forEach((docSnap) => {
+      snapshot.forEach(async (docSnap) => {
         const data = docSnap.data();
         const petWrap = document.createElement("div");
         petWrap.className = "pet-container";
@@ -156,21 +162,47 @@
         const petImg = document.createElement("img");
         petImg.className = "pet";
         petImg.src = data.image;
-        petImg.onclick = () => {
+
+        const now = Date.now();
+        const timeDiff = now - data.plantedAt;
+        let nextStage = data.growStage || 0;
+        if (timeDiff >= 10000 && nextStage < 2) {
+          nextStage++;
+          if (docSnap.id === myId) {
+            await updateDoc(doc(petsRef, myId), {
+              growStage: nextStage
+            });
+          }
+        }
+        if (timeDiff >= 30000 && nextStage === 2 && docSnap.id === myId) {
+          await updateDoc(doc(petsRef, myId), {
+            coins: (data.coins || 0) + 1,
+            growStage: 0,
+            plantedAt: now
+          });
+          return;
+        }
+
+        petImg.onclick = async () => {
           if (docSnap.id === myId) {
             const newGrid = (data.grid + 1) % 9;
-            updateDoc(doc(petsRef, myId), {
+            const newStage = Math.min((data.growStage || 0) + 1, 2);
+            const updates = {
               grid: newGrid,
-              plantedAt: Date.now()
-            });
+              plantedAt: Date.now(),
+              growStage: newStage
+            };
+            if (newStage === 2) {
+              updates.coins = (data.coins || 0) + 1;
+              updates.growStage = 0;
+            }
+            await updateDoc(doc(petsRef, myId), updates);
           }
         };
 
-        const timeDiff = Date.now() - data.plantedAt;
-        let stageIndex = Math.min(2, Math.floor(timeDiff / 10000));
         const plantDiv = document.createElement("div");
         plantDiv.className = "plant-stage";
-        plantDiv.textContent = STAGES[stageIndex];
+        plantDiv.textContent = STAGES[data.growStage || 0];
 
         const coinDiv = document.createElement("div");
         coinDiv.className = "coin";
@@ -183,6 +215,19 @@
         plots[data.grid || 0].appendChild(petWrap);
       });
     });
+
+    async function updateLeaderboard() {
+      const q = query(petsRef, orderBy("coins", "desc"), limit(5));
+      const snapshot = await getDocs(q);
+      const leaderboard = document.getElementById("leaderboard");
+      leaderboard.innerHTML = "🏆 排行榜：" + Array.from(snapshot.docs)
+        .map(doc => {
+          const d = doc.data();
+          return `${d.owner || "無名氏"}（${d.coins || 0} 🪙）`;
+        }).join(" ・ ");
+    }
+
+    setInterval(updateLeaderboard, 5000);
   </script>
 </body>
 </html>
