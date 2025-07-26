@@ -45,11 +45,8 @@
   <h1>🌱 巴拉麵種菜啦</h1>
   <div class="field"></div>
 
-  <!-- ✅ Firebase 12 使用 Module 的版本 -->
+  <!-- ✅ Firebase SDK (v12 模組語法) -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-app.js";
     import { getAnalytics } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-analytics.js";
-    import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-auth.js";
-    import { getFirestore, collection, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-firestore.js";
-
-    const firebaseConfig = {
+    import { getAuth, signInAnonymously, onAuth
