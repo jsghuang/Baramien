@@ -15,43 +15,61 @@
       color: #467a3f;
     }
     .field {
-      position: relative;
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      grid-template-rows: repeat(3, 1fr);
+      gap: 5px;
       margin: 20px auto;
       width: 100%;
       max-width: 600px;
-      height: 400px;
+      height: 600px;
       background-color: #c8f5a8;
       border: 3px solid #5c8e43;
       border-radius: 16px;
-      overflow: hidden;
+      padding: 5px;
+    }
+    .plot {
+      background-color: #bdf2a1;
+      border: 2px solid #5c8e43;
+      border-radius: 12px;
+      position: relative;
     }
     .pet {
-      width: 96px;
-      height: 96px;
-      position: absolute;
-      bottom: 10px;
+      width: 72px;
+      height: 72px;
       cursor: pointer;
     }
-    .pet-name {
+    .pet-container {
       position: absolute;
-      bottom: 110px;
-      background-color: rgba(255, 255, 255, 0.7);
-      padding: 4px 8px;
-      border-radius: 8px;
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%, -50%);
+      text-align: center;
+    }
+    .pet-name {
+      margin-bottom: 4px;
       font-weight: bold;
-      white-space: nowrap;
+      background: rgba(255,255,255,0.6);
+      padding: 2px 4px;
+      border-radius: 6px;
+      font-size: 14px;
+    }
+    .plant-stage {
+      font-size: 24px;
+    }
+    .coin {
+      font-size: 20px;
+      margin-top: 2px;
     }
     #loginBox {
       margin-top: 20px;
     }
-    input {
+    input, button {
       padding: 8px;
       margin: 5px;
       font-size: 1em;
     }
     button {
-      padding: 8px 16px;
-      font-size: 1em;
       background-color: #6cbe5e;
       border: none;
       border-radius: 8px;
@@ -72,7 +90,7 @@
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-app.js";
     import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-auth.js";
-    import { getFirestore, collection, doc, setDoc, updateDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-firestore.js";
+    import { getFirestore, collection, doc, setDoc, updateDoc, onSnapshot, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-firestore.js";
 
     const firebaseConfig = {
       apiKey: "AIzaSyCRBhaLdaL7DkwAz5pVm2VOAEP765cxw-E",
@@ -90,6 +108,8 @@
 
     let myId = null;
 
+    const STAGES = ["🌱", "🌿", "🥬"];
+
     document.getElementById("startBtn").onclick = () => {
       const owner = document.getElementById("ownerInput").value.trim();
       const petName = document.getElementById("petInput").value.trim();
@@ -104,8 +124,9 @@
               owner: owner,
               name: petName,
               image: "https://raw.githubusercontent.com/jsghuang/Baramien2/main/1.png",
-              x: Math.floor(Math.random() * 300) + 50,
-              bornAt: Date.now()
+              grid: Math.floor(Math.random() * 9),
+              plantedAt: Date.now(),
+              coins: 0
             });
             document.getElementById("loginBox").style.display = "none";
           }
@@ -116,27 +137,50 @@
     onSnapshot(petsRef, (snapshot) => {
       const field = document.getElementById("field");
       field.innerHTML = "";
+      const plots = Array.from({length: 9}, (_, i) => {
+        const plot = document.createElement("div");
+        plot.className = "plot";
+        field.appendChild(plot);
+        return plot;
+      });
+
       snapshot.forEach((docSnap) => {
         const data = docSnap.data();
+        const petWrap = document.createElement("div");
+        petWrap.className = "pet-container";
+
+        const nameDiv = document.createElement("div");
+        nameDiv.className = "pet-name";
+        nameDiv.textContent = `${data.owner} 的 ${data.name}`;
+
         const petImg = document.createElement("img");
-        petImg.src = data.image;
         petImg.className = "pet";
-        petImg.style.left = data.x + "px";
+        petImg.src = data.image;
         petImg.onclick = () => {
           if (docSnap.id === myId) {
-            const newX = Math.floor(Math.random() * 300) + 50;
-            petImg.style.left = newX + "px";
-            updateDoc(doc(petsRef, myId), { x: newX });
+            const newGrid = (data.grid + 1) % 9;
+            updateDoc(doc(petsRef, myId), {
+              grid: newGrid,
+              plantedAt: Date.now()
+            });
           }
         };
 
-        const name = document.createElement("div");
-        name.className = "pet-name";
-        name.innerText = `${data.owner} 的 ${data.name}`;
-        name.style.left = data.x + "px";
+        const timeDiff = Date.now() - data.plantedAt;
+        let stageIndex = Math.min(2, Math.floor(timeDiff / 10000));
+        const plantDiv = document.createElement("div");
+        plantDiv.className = "plant-stage";
+        plantDiv.textContent = STAGES[stageIndex];
 
-        field.appendChild(name);
-        field.appendChild(petImg);
+        const coinDiv = document.createElement("div");
+        coinDiv.className = "coin";
+        coinDiv.textContent = "🪙".repeat(data.coins || 0);
+
+        petWrap.appendChild(nameDiv);
+        petWrap.appendChild(petImg);
+        petWrap.appendChild(plantDiv);
+        petWrap.appendChild(coinDiv);
+        plots[data.grid || 0].appendChild(petWrap);
       });
     });
   </script>
