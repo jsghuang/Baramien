@@ -6,7 +6,7 @@
   <style>
     body {
       background: url('https://raw.githubusercontent.com/jsghuang/Baramien/main/FarmBackground.png') no-repeat center center fixed;
-      background-size: cover;
+      background-size: contain;
       font-family: "Segoe UI", sans-serif;
       text-align: center;
       margin: 0;
@@ -32,15 +32,20 @@
       grid-template-columns: repeat(3, 1fr);
       grid-template-rows: repeat(3, 1fr);
       gap: 0;
-      margin: 10px auto;
-      width: 600px;
-      height: 600px;
+      position: absolute;
+      top: 180px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 540px;
+      height: 540px;
       background-color: transparent;
+      pointer-events: none;
     }
     .plot {
       position: relative;
-      width: 200px;
-      height: 200px;
+      width: 180px;
+      height: 180px;
+      pointer-events: auto;
     }
     .pet-container {
       position: absolute;
@@ -226,7 +231,6 @@
             });
           }
         } else {
-          // 自動採收
           if (Date.now() - d.plantedAt >= 5000) {
             await updateDoc(doc(petsRef, docSnap.id), {
               growStage: 0,
