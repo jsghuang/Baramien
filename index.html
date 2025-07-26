@@ -49,11 +49,9 @@
     }
     .pet-container {
       position: absolute;
-      left: 50%;
-      top: 50%;
-      transform: translate(-50%, -50%);
       text-align: center;
       z-index: 2;
+      transition: left 1s linear, top 1s linear;
     }
     .pet-name {
       margin-bottom: 4px;
@@ -126,6 +124,11 @@
 
     let myId = null;
     const STAGES = ["🌱", "🌿", "🥬"];
+    const gridPositions = [
+      [0, 0], [1, 0], [2, 0],
+      [0, 1], [1, 1], [2, 1],
+      [0, 2], [1, 2], [2, 2]
+    ];
 
     document.getElementById("startBtn").onclick = () => {
       const owner = document.getElementById("ownerInput").value.trim();
@@ -136,15 +139,18 @@
         onAuthStateChanged(auth, async (user) => {
           if (user) {
             myId = user.uid;
+            const grid = Math.floor(Math.random() * 9);
             const userPetRef = doc(petsRef, myId);
             await setDoc(userPetRef, {
               owner: owner,
               name: petName,
               image: "https://raw.githubusercontent.com/jsghuang/Baramien2/main/1.png",
-              grid: Math.floor(Math.random() * 9),
+              grid: grid,
               plantedAt: Date.now(),
               growStage: 0,
-              coins: 0
+              coins: 0,
+              x: gridPositions[grid][0],
+              y: gridPositions[grid][1]
             });
             document.getElementById("loginBox").style.display = "none";
           }
@@ -162,10 +168,12 @@
         return plot;
       });
 
-      snapshot.forEach(async (docSnap) => {
+      snapshot.forEach((docSnap) => {
         const data = docSnap.data();
         const petWrap = document.createElement("div");
         petWrap.className = "pet-container";
+        petWrap.style.left = `${data.x * 33 + 16}%`;
+        petWrap.style.top = `${data.y * 33 + 16}%`;
 
         const nameDiv = document.createElement("div");
         nameDiv.className = "pet-name";
@@ -180,22 +188,6 @@
         plantDiv.className = "plant-stage grow-animate";
         plantDiv.textContent = STAGES[data.growStage || 0];
 
-        plantDiv.onclick = async (e) => {
-          e.stopPropagation();
-          if (docSnap.id === myId) {
-            const newStage = Math.min((data.growStage || 0) + 1, 2);
-            const updates = {
-              growStage: newStage
-            };
-            if (newStage === 2) {
-              updates.coins = (data.coins || 0) + 1;
-              updates.growStage = 0;
-              updates.plantedAt = Date.now();
-            }
-            await updateDoc(doc(petsRef, myId), updates);
-          }
-        };
-
         const coinDiv = document.createElement("div");
         coinDiv.className = "coin";
         coinDiv.textContent = `金幣：${data.coins || 0}`;
@@ -204,44 +196,47 @@
         petWrap.appendChild(petImg);
         petWrap.appendChild(plantDiv);
         petWrap.appendChild(coinDiv);
-        plots[data.grid || 0].appendChild(petWrap);
+        field.appendChild(petWrap);
       });
     });
+
+    setInterval(async () => {
+      const snapshot = await getDocs(petsRef);
+      for (const docSnap of snapshot.docs) {
+        const data = docSnap.data();
+        let bonus = 0;
+        snapshot.docs.forEach(otherSnap => {
+          if (otherSnap.id !== docSnap.id) {
+            const other = otherSnap.data();
+            if (other.x === data.x && other.y === data.y) {
+              bonus++;
+            }
+          }
+        });
+        const growthTime = 5000 - 1000 * bonus;
+        const now = Date.now();
+        if (data.growStage < 2 && now - data.plantedAt >= growthTime) {
+          await updateDoc(doc(petsRef, docSnap.id), {
+            growStage: data.growStage + 1,
+            plantedAt: now
+          });
+        } else if (data.growStage === 2 && now - data.plantedAt >= growthTime) {
+          await updateDoc(doc(petsRef, docSnap.id), {
+            growStage: 0,
+            coins: (data.coins || 0) + 1,
+            plantedAt: now
+          });
+        }
+      }
+    }, 1000);
 
     async function updateLeaderboard() {
       const q = query(petsRef, orderBy("coins", "desc"), limit(5));
       const snapshot = await getDocs(q);
       const leaderboard = document.getElementById("leaderboard");
       leaderboard.innerHTML = "🏆 排行榜：" + Array.from(snapshot.docs)
-        .map(doc => {
-          const d = doc.data();
-          return `${d.owner || "無名氏"}（${d.coins || 0} 金幣）`;
-        }).join(" ・ ");
+        .map(doc => `${doc.data().owner}（${doc.data().coins || 0} 金幣）`).join(" ・ ");
     }
-
-    setInterval(async () => {
-      const petDoc = await getDocs(query(petsRef));
-      petDoc.forEach(async (docSnap) => {
-        const d = docSnap.data();
-        if (d.growStage < 2) {
-          const diff = Date.now() - d.plantedAt;
-          if (diff >= 5000) {
-            await updateDoc(doc(petsRef, docSnap.id), {
-              growStage: d.growStage + 1,
-              plantedAt: Date.now()
-            });
-          }
-        } else {
-          if (Date.now() - d.plantedAt >= 5000) {
-            await updateDoc(doc(petsRef, docSnap.id), {
-              growStage: 0,
-              coins: (d.coins || 0) + 1,
-              plantedAt: Date.now()
-            });
-          }
-        }
-      });
-    }, 1000);
 
     setInterval(updateLeaderboard, 5000);
   </script>
