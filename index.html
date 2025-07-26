@@ -43,191 +43,58 @@
       position: relative;
       width: 100%;
       height: 100%;
-    }
-    .pet-container {
-      position: absolute;
-      text-align: center;
-      z-index: 2;
-      transition: left 1s linear, top 1s linear;
-    }
-    .pet-name {
-      margin-bottom: 4px;
-      font-weight: bold;
-      background: rgba(255,255,255,0.6);
-      padding: 2px 4px;
-      border-radius: 6px;
-      font-size: 14px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
     }
     .plant-stage {
       font-size: 24px;
       transition: transform 0.5s ease;
-    }
-    .grow-animate {
       animation: pulse 1s infinite alternate;
     }
     @keyframes pulse {
       from { transform: scale(1); }
       to { transform: scale(1.2); }
     }
-    .coin {
-      font-size: 16px;
-      margin-top: 2px;
-    }
-    #loginBox {
-      margin-top: 10px;
-    }
-    input, button {
-      padding: 8px;
-      margin: 5px;
-      font-size: 1em;
-    }
-    button {
-      background-color: #6cbe5e;
-      border: none;
-      border-radius: 8px;
-      color: white;
-      cursor: pointer;
-    }
   </style>
 </head>
 <body>
   <h1>🌱 巴拉麵種菜啦</h1>
   <div id="leaderboard"></div>
-  <div id="loginBox">
-    <input type="text" id="ownerInput" placeholder="輸入你的名字">
-    <input type="text" id="petInput" placeholder="寵物名字">
-    <button id="startBtn">開始種菜</button>
-  </div>
   <div class="field" id="field"></div>
 
-  <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-app.js";
-    import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-auth.js";
-    import { getFirestore, collection, doc, setDoc, updateDoc, onSnapshot, getDocs, query, orderBy, limit } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-firestore.js";
-
-    const firebaseConfig = {
-      apiKey: "AIzaSyCRBhaLdaL7DkwAz5pVm2VOAEP765cxw-E",
-      authDomain: "baramien-tank.firebaseapp.com",
-      projectId: "baramien-tank",
-      storageBucket: "baramien-tank.firebasestorage.app",
-      messagingSenderId: "753042102440",
-      appId: "1:753042102440:web:252929a482ae6a33e30a9d"
-    };
-
-    const app = initializeApp(firebaseConfig);
-    const auth = getAuth(app);
-    const db = getFirestore(app);
-    const petsRef = collection(db, "pets");
-
-    let myId = null;
+  <script>
     const STAGES = ["🌱", "🌿", "🥬"];
-    const gridPositions = [
-      [0, 0], [1, 0], [2, 0],
-      [0, 1], [1, 1], [2, 1],
-      [0, 2], [1, 2], [2, 2]
-    ];
+    const plots = Array(9).fill().map(() => ({ stage: 0, time: Date.now() }));
 
-    document.getElementById("startBtn").onclick = () => {
-      const owner = document.getElementById("ownerInput").value.trim();
-      const petName = document.getElementById("petInput").value.trim();
-      if (!owner || !petName) return alert("請填入名字和寵物名");
-
-      signInAnonymously(auth).then(() => {
-        onAuthStateChanged(auth, async (user) => {
-          if (user) {
-            myId = user.uid;
-            const grid = 0;
-            const userPetRef = doc(petsRef, myId);
-            await setDoc(userPetRef, {
-              owner: owner,
-              name: petName,
-              image: "https://raw.githubusercontent.com/jsghuang/Baramien2/main/1.png",
-              gridIndex: 0,
-              plantedAt: Date.now(),
-              growStage: 0,
-              coins: 0
-            });
-            document.getElementById("loginBox").style.display = "none";
-          }
-        });
-      });
-    };
-
-    onSnapshot(petsRef, (snapshot) => {
-      const field = document.getElementById("field");
-      field.innerHTML = "";
-      snapshot.forEach((docSnap) => {
-        const data = docSnap.data();
-        const [gx, gy] = gridPositions[data.gridIndex];
-        const petWrap = document.createElement("div");
-        petWrap.className = "pet-container";
-        petWrap.style.left = `${gx * 33 + 16}%`;
-        petWrap.style.top = `${gy * 33 + 16}%`;
-
-        const nameDiv = document.createElement("div");
-        nameDiv.className = "pet-name";
-        nameDiv.textContent = `${data.owner} 的 ${data.name}`;
-
-        const petImg = document.createElement("img");
-        petImg.src = data.image;
-        petImg.style.width = "72px";
-        petImg.style.height = "72px";
-
-        const plantDiv = document.createElement("div");
-        plantDiv.className = "plant-stage grow-animate";
-        plantDiv.textContent = STAGES[data.growStage || 0];
-
-        const coinDiv = document.createElement("div");
-        coinDiv.className = "coin";
-        coinDiv.textContent = `金幣：${data.coins || 0}`;
-
-        petWrap.appendChild(nameDiv);
-        petWrap.appendChild(petImg);
-        petWrap.appendChild(plantDiv);
-        petWrap.appendChild(coinDiv);
-        field.appendChild(petWrap);
-      });
-    });
-
-    setInterval(async () => {
-      const snapshot = await getDocs(petsRef);
-      for (const docSnap of snapshot.docs) {
-        const data = docSnap.data();
-        const petRef = doc(petsRef, docSnap.id);
-
-        let nextIndex = (data.gridIndex + 1) % 9;
-        const now = Date.now();
-        const bonus = 1;
-        const growthTime = 5000 - 1000 * bonus;
-
-        if (data.growStage < 2 && now - data.plantedAt >= growthTime) {
-          await updateDoc(petRef, {
-            growStage: data.growStage + 1,
-            plantedAt: now
-          });
-        } else if (data.growStage === 2 && now - data.plantedAt >= growthTime) {
-          await updateDoc(petRef, {
-            growStage: 0,
-            coins: (data.coins || 0) + 1,
-            plantedAt: now
-          });
+    function updatePlants() {
+      const now = Date.now();
+      plots.forEach((plot, index) => {
+        const div = document.getElementById('plot-' + index);
+        if (plot.stage < 2 && now - plot.time >= 5000) {
+          plot.stage++;
+          plot.time = now;
+        } else if (plot.stage === 2 && now - plot.time >= 5000) {
+          plot.stage = 0;
+          plot.time = now;
         }
-
-        await updateDoc(petRef, {
-          gridIndex: nextIndex
-        });
-      }
-    }, 2000);
-
-    async function updateLeaderboard() {
-      const q = query(petsRef, orderBy("coins", "desc"), limit(5));
-      const snapshot = await getDocs(q);
-      const leaderboard = document.getElementById("leaderboard");
-      leaderboard.innerHTML = "🏆 排行榜：" + Array.from(snapshot.docs)
-        .map(doc => `${doc.data().owner}（${doc.data().coins || 0} 金幣）`).join(" ・ ");
+        div.textContent = STAGES[plot.stage];
+      });
     }
 
-    setInterval(updateLeaderboard, 5000);
+    function createField() {
+      const field = document.getElementById("field");
+      plots.forEach((plot, i) => {
+        const plotDiv = document.createElement("div");
+        plotDiv.className = "plot";
+        plotDiv.id = "plot-" + i;
+        plotDiv.textContent = STAGES[plot.stage];
+        field.appendChild(plotDiv);
+      });
+    }
+
+    createField();
+    setInterval(updatePlants, 1000);
   </script>
 </body>
 </html>
