@@ -37,11 +37,7 @@
       border: 2px solid #5c8e43;
       border-radius: 12px;
       position: relative;
-    }
-    .pet {
-      width: 72px;
-      height: 72px;
-      cursor: pointer;
+      overflow: hidden;
     }
     .pet-container {
       position: absolute;
@@ -60,9 +56,17 @@
     }
     .plant-stage {
       font-size: 24px;
+      transition: transform 0.5s ease;
+    }
+    .grow-animate {
+      animation: pulse 1s infinite alternate;
+    }
+    @keyframes pulse {
+      from { transform: scale(1); }
+      to { transform: scale(1.2); }
     }
     .coin {
-      font-size: 20px;
+      font-size: 16px;
       margin-top: 2px;
     }
     #loginBox {
@@ -112,7 +116,6 @@
     const petsRef = collection(db, "pets");
 
     let myId = null;
-
     const STAGES = ["🌱", "🌿", "🥬"];
 
     document.getElementById("startBtn").onclick = () => {
@@ -143,7 +146,7 @@
     onSnapshot(petsRef, (snapshot) => {
       const field = document.getElementById("field");
       field.innerHTML = "";
-      const plots = Array.from({length: 9}, (_, i) => {
+      const plots = Array.from({ length: 9 }, (_, i) => {
         const plot = document.createElement("div");
         plot.className = "plot";
         field.appendChild(plot);
@@ -160,53 +163,32 @@
         nameDiv.textContent = `${data.owner} 的 ${data.name}`;
 
         const petImg = document.createElement("img");
-        petImg.className = "pet";
         petImg.src = data.image;
+        petImg.style.width = "72px";
+        petImg.style.height = "72px";
 
-        const now = Date.now();
-        const timeDiff = now - data.plantedAt;
-        let nextStage = data.growStage || 0;
-        if (timeDiff >= 10000 && nextStage < 2) {
-          nextStage++;
-          if (docSnap.id === myId) {
-            await updateDoc(doc(petsRef, myId), {
-              growStage: nextStage
-            });
-          }
-        }
-        if (timeDiff >= 30000 && nextStage === 2 && docSnap.id === myId) {
-          await updateDoc(doc(petsRef, myId), {
-            coins: (data.coins || 0) + 1,
-            growStage: 0,
-            plantedAt: now
-          });
-          return;
-        }
+        const plantDiv = document.createElement("div");
+        plantDiv.className = "plant-stage grow-animate";
+        plantDiv.textContent = STAGES[data.growStage || 0];
 
-        petImg.onclick = async () => {
+        plantDiv.onclick = async () => {
           if (docSnap.id === myId) {
-            const newGrid = (data.grid + 1) % 9;
             const newStage = Math.min((data.growStage || 0) + 1, 2);
             const updates = {
-              grid: newGrid,
-              plantedAt: Date.now(),
               growStage: newStage
             };
             if (newStage === 2) {
               updates.coins = (data.coins || 0) + 1;
               updates.growStage = 0;
+              updates.plantedAt = Date.now();
             }
             await updateDoc(doc(petsRef, myId), updates);
           }
         };
 
-        const plantDiv = document.createElement("div");
-        plantDiv.className = "plant-stage";
-        plantDiv.textContent = STAGES[data.growStage || 0];
-
         const coinDiv = document.createElement("div");
         coinDiv.className = "coin";
-        coinDiv.textContent = "🪙".repeat(data.coins || 0);
+        coinDiv.textContent = `金幣：${data.coins || 0}`;
 
         petWrap.appendChild(nameDiv);
         petWrap.appendChild(petImg);
@@ -223,9 +205,34 @@
       leaderboard.innerHTML = "🏆 排行榜：" + Array.from(snapshot.docs)
         .map(doc => {
           const d = doc.data();
-          return `${d.owner || "無名氏"}（${d.coins || 0} 🪙）`;
+          return `${d.owner || "無名氏"}（${d.coins || 0} 金幣）`;
         }).join(" ・ ");
     }
+
+    setInterval(async () => {
+      const petDoc = await getDocs(query(petsRef));
+      petDoc.forEach(async (docSnap) => {
+        const d = docSnap.data();
+        if (d.growStage < 2) {
+          const diff = Date.now() - d.plantedAt;
+          if (diff >= 5000) {
+            await updateDoc(doc(petsRef, docSnap.id), {
+              growStage: d.growStage + 1,
+              plantedAt: Date.now()
+            });
+          }
+        } else {
+          // 自動採收
+          if (Date.now() - d.plantedAt >= 5000) {
+            await updateDoc(doc(petsRef, docSnap.id), {
+              growStage: 0,
+              coins: (d.coins || 0) + 1,
+              plantedAt: Date.now()
+            });
+          }
+        }
+      });
+    }, 1000);
 
     setInterval(updateLeaderboard, 5000);
   </script>
