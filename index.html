@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <title>巴拉麵種菜啦</title>
+  <style>
+    body {
+      background-color: #eafdd8;
+      font-family: "Segoe UI", sans-serif;
+      text-align: center;
+      margin: 0;
+    }
+    h1 {
+      margin: 20px 0;
+      color: #467a3f;
+    }
+    .field {
+      position: relative;
+      margin: 20px auto;
+      width: 100%;
+      max-width: 600px;
+      height: 400px;
+      background-color: #c8f5a8;
+      border: 3px solid #5c8e43;
+      border-radius: 16px;
+      overflow: hidden;
+    }
+    .pet {
+      width: 96px;
+      height: 96px;
+      position: absolute;
+      bottom: 10px;
+    }
+    .pet-name {
+      position: absolute;
+      bottom: 110px;
+      background-color: rgba(255, 255, 255, 0.7);
+      padding: 4px 8px;
+      border-radius: 8px;
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body>
+  <h1>🌱 巴拉麵種菜啦</h1>
+  <div class="field"></div>
+
+  <!-- Firebase JS SDK -->
+  <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-auth.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore.js"></script>
+
+  <script>
+    // ✅ 這邊貼上你的 firebaseConfig 設定（我已經幫你貼好）
+    const firebaseConfig = {
+      apiKey: "AIzaSyCRBhaLdaLz7DkvaZ5pVm2VOEAP765cxwE",
+      authDomain: "baramien-tank.firebaseapp.com",
+      projectId: "baramien-tank",
+      storageBucket: "baramien-tank.appspot.com",
+      messagingSenderId: "YOUR-ID",
+      appId: "YOUR-APP-ID"
+    };
+
+    // 初始化 Firebase
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+
+    const petsRef = db.collection("pets");
+
+    // 登入並建立寵物資料
+    firebase.auth().signInAnonymously().then(() => {
+      const userId = firebase.auth().currentUser.uid;
+      petsRef.doc(userId).set({
+        name: "嘉哲",
+        image: "https://raw.githubusercontent.com/jsghuang/Baramien2/main/1.png",
+        x: Math.floor(Math.random() * 300) + 50,
+        y: 200,
+        bornAt: Date.now()
+      });
+    });
+
+    // 監聽並顯示所有寵物
+    petsRef.onSnapshot(snapshot => {
+      const field = document.querySelector(".field");
+      field.innerHTML = ""; // 清空
+
+      snapshot.forEach(doc => {
+        const data = doc.data();
+        const img = document.createElement("img");
+        img.src = data.image;
+        img.className = "pet";
+        img.style.left = data.x + "px";
+
+        const name = document.createElement("div");
+        name.className = "pet-name";
+        name.innerText = data.name;
+        name.style.left = data.x + "px";
+
+        field.appendChild(name);
+        field.appendChild(img);
+      });
+    });
+  </script>
+</body>
+</html>
