@@ -45,8 +45,67 @@
   <h1>🌱 巴拉麵種菜啦</h1>
   <div class="field"></div>
 
-  <!-- ✅ Firebase SDK (v12 模組語法) -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-app.js";
-    import { getAnalytics } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-analytics.js";
-    import { getAuth, signInAnonymously, onAuth
+    import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-auth.js";
+    import { getFirestore, collection, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-firestore.js";
+
+    // 1. 設定 firebaseConfig
+    const firebaseConfig = {
+      apiKey: "AIzaSyCRBhaLdaL7DkwAz5pVm2VOAEP765cxw-E",
+      authDomain: "baramien-tank.firebaseapp.com",
+      projectId: "baramien-tank",
+      storageBucket: "baramien-tank.firebasestorage.app",
+      messagingSenderId: "753042102440",
+      appId: "1:753042102440:web:252929a482ae6a33e30a9d"
+    };
+
+    // 2. 初始化 Firebase
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+    const petsRef = collection(db, "pets");
+
+    // 3. 登入 + 存入巴拉麵
+    signInAnonymously(auth)
+      .then(() => {
+        onAuthStateChanged(auth, async (user) => {
+          if (user) {
+            const userId = user.uid;
+            const userPetRef = doc(petsRef, userId);
+            await setDoc(userPetRef, {
+              name: "嘉哲",
+              image: "https://raw.githubusercontent.com/jsghuang/Baramien2/main/1.png",
+              x: Math.floor(Math.random() * 300) + 50,
+              bornAt: Date.now()
+            });
+          }
+        });
+      })
+      .catch((error) => {
+        console.error("登入失敗：", error);
+      });
+
+    // 4. 監聽 Firestore 顯示所有巴拉麵
+    onSnapshot(petsRef, (snapshot) => {
+      const field = document.querySelector(".field");
+      field.innerHTML = "";
+      snapshot.forEach((doc) => {
+        const data = doc.data();
+        const img = document.createElement("img");
+        img.src = data.image;
+        img.className = "pet";
+        img.style.left = data.x + "px";
+
+        const name = document.createElement("div");
+        name.className = "pet-name";
+        name.innerText = data.name;
+        name.style.left = data.x + "px";
+
+        field.appendChild(name);
+        field.appendChild(img);
+      });
+    });
+  </script>
+</body>
+</html>
